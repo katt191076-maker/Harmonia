@@ -435,7 +435,7 @@ export default function App() {
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
           active 
             ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-sm' 
-            : 'hover:bg-slate-800 hover:text-white'
+            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
         }`}
       >
         {icon}
