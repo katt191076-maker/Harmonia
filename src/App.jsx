@@ -1828,7 +1828,7 @@ export default function App() {
 
         {/* Mobile Dropdown Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden fixed top-16 left-0 right-0 bg-slate-800 border-b border-slate-700 z-20 p-4 space-y-2 shadow-lg">
+          <div className="md:hidden fixed top-16 left-0 right-0 bg-slate-800 border-b border-slate-700 z-50 p-4 space-y-2 shadow-lg">
             <NavItem id="daily" icon={<Calendar size={20} />} label="Plan dnia" />
             <NavItem id="tasks" icon={<ListTodo size={20} />} label="Zadania" />
             <NavItem id="habits" icon={<Activity size={20} />} label="Nawyki" />
