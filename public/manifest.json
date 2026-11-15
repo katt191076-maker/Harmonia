@@ -5,5 +5,13 @@
   "scope": "/Harmonia/",
   "display": "standalone",
   "theme_color": "#1e293b",
-  "background_color": "#f8fafc"
+  "background_color": "#f8fafc",
+  "icons": [
+    {
+      "src": "/Harmonia/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
