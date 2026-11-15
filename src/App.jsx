@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   CheckCircle2, 
   Circle, 
@@ -10,7 +10,6 @@ import {
   Activity, 
   Menu, 
   X, 
-  Award,
   BellRing,
   Edit3,
   Save,
@@ -19,8 +18,13 @@ import {
   ChevronRight,
   Clock,
   Sparkles,
-  Repeat
+  Repeat,
+  Cloud,
+  LogOut,
+  Mail,
+  Lock
 } from 'lucide-react';
+import { supabase } from './supabaseClient';
 
 // --- CUSTOM YIN-YANG LOGO (PASTEL PINK) ---
 const YinYangLogo = ({ className = "w-7 h-7" }) => (
@@ -211,8 +215,136 @@ const DAYS_OF_WEEK = [
   { id: '0', label: 'Nd', full: 'Niedziela' }
 ];
 
+// --- EKRAN LOGOWANIA / REJESTRACJI ---
+const AuthScreen = () => {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [infoMsg, setInfoMsg] = useState('');
+
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+    setInfoMsg('');
+
+    try {
+      if (isSignUp) {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        if (!data.session) {
+          setInfoMsg('Konto utworzone! Sprawdź skrzynkę e-mail lub zaloguj się.');
+          setIsSignUp(false);
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (err) {
+      setErrorMsg(err.message === 'Invalid login credentials' 
+        ? 'Nieprawidłowy adres e-mail lub hasło.' 
+        : err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 font-sans">
+      <div className="bg-white w-full max-w-md rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+        <div className="bg-slate-900 p-8 text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 mb-3">
+            <YinYangLogo className="w-9 h-9" />
+          </div>
+          <h1 className="text-2xl font-light text-[#F9B8C9] tracking-wide">Harmonia</h1>
+          <p className="text-xs text-slate-400 mt-1">Synchronizacja zadań i nawyków w chmurze</p>
+        </div>
+
+        <form onSubmit={handleAuth} className="p-6 sm:p-8 space-y-5">
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => { setIsSignUp(false); setErrorMsg(''); }}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${!isSignUp ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+            >
+              Logowanie
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsSignUp(true); setErrorMsg(''); }}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${isSignUp ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+            >
+              Nowe konto
+            </button>
+          </div>
+
+          {errorMsg && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs p-3 rounded-xl">
+              {errorMsg}
+            </div>
+          )}
+
+          {infoMsg && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs p-3 rounded-xl">
+              {infoMsg}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1.5">Adres e-mail</label>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <input
+                type="email"
+                required
+                placeholder="twoj@email.pl"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1.5">Hasło (min. 6 znaków)</label>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <input
+                type="password"
+                required
+                minLength={6}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-slate-900 text-white py-3 rounded-xl font-medium text-sm hover:bg-slate-800 transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Łączenie...' : (isSignUp ? 'Utwórz konto i połącz chmurę' : 'Zaloguj się')}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
-  // --- STATE ---
+  // --- AUTH & CLOUD SYNC STATE ---
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [cloudLoaded, setCloudLoaded] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('synced'); // 'synced' | 'saving' | 'error'
+  const skipNextSave = useRef(true);
+
+  // --- APP STATE ---
   const [activeTab, setActiveTab] = useState('daily');
   const [selectedPlanDate, setSelectedPlanDate] = useState(getTodayString());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -245,18 +377,98 @@ export default function App() {
 
   const today = getTodayString();
 
-  // --- EFFECTS (Persistence) ---
+  // --- SUPABASE SESSION LISTENER ---
   useEffect(() => {
-    try { localStorage.setItem('harmonia_v4_categories', JSON.stringify(categories)); } catch (e) {}
-  }, [categories]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
 
-  useEffect(() => {
-    try { localStorage.setItem('harmonia_v4_tasks', JSON.stringify(tasks)); } catch (e) {}
-  }, [tasks]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) {
+        setCloudLoaded(false);
+        skipNextSave.current = true;
+      }
+    });
 
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- LOAD DATA FROM SUPABASE ON LOGIN ---
   useEffect(() => {
-    try { localStorage.setItem('harmonia_v4_habits', JSON.stringify(habits)); } catch (e) {}
-  }, [habits]);
+    if (!session?.user) return;
+
+    const loadCloudData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_data')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (error && error.code === 'PGRST116') {
+          // Pierwsze logowanie: wyślij lokalne dane do chmury
+          await supabase.from('user_data').upsert({
+            user_id: session.user.id,
+            tasks,
+            habits,
+            categories,
+            updated_at: new Date().toISOString()
+          });
+          skipNextSave.current = true;
+          setCloudLoaded(true);
+          return;
+        }
+
+        if (data) {
+          skipNextSave.current = true;
+          if (Array.isArray(data.categories) && data.categories.length > 0) setCategories(data.categories);
+          if (Array.isArray(data.tasks)) setTasks(data.tasks);
+          if (Array.isArray(data.habits)) setHabits(data.habits);
+        }
+        setCloudLoaded(true);
+      } catch (err) {
+        console.error('Błąd pobierania danych z chmury:', err);
+        setCloudLoaded(true);
+      }
+    };
+
+    loadCloudData();
+  }, [session]);
+
+  // --- SAVE TO LOCALSTORAGE & SUPABASE ---
+  useEffect(() => {
+    try {
+      localStorage.setItem('harmonia_v4_categories', JSON.stringify(categories));
+      localStorage.setItem('harmonia_v4_tasks', JSON.stringify(tasks));
+      localStorage.setItem('harmonia_v4_habits', JSON.stringify(habits));
+    } catch (e) {}
+
+    if (!session?.user || !cloudLoaded) return;
+
+    if (skipNextSave.current) {
+      skipNextSave.current = false;
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSyncStatus('saving');
+      const { error } = await supabase
+        .from('user_data')
+        .upsert({
+          user_id: session.user.id,
+          tasks,
+          habits,
+          categories,
+          updated_at: new Date().toISOString()
+        });
+
+      setSyncStatus(error ? 'error' : 'synced');
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [categories, tasks, habits, session, cloudLoaded]);
 
   // --- EFFECTS (Reminders on load) ---
   useEffect(() => {
@@ -406,6 +618,18 @@ export default function App() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="h-screen bg-[#f8fafc] flex items-center justify-center text-slate-400 text-sm">
+        Ładowanie Harmonii...
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <AuthScreen />;
+  }
+
   // --- NAVIGATION COMPONENTS ---
 
   const Sidebar = () => (
@@ -421,8 +645,9 @@ export default function App() {
         <NavItem id="stats" icon={<BarChart3 size={20} />} label="Podsumowanie" />
         <NavItem id="settings" icon={<Settings size={20} />} label="Ustawienia" />
       </nav>
-      <div className="p-4 border-t border-slate-800 text-xs text-slate-500 text-center">
-        Twój Osobisty Planer Dnia
+      <div className="p-4 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-center gap-1.5">
+        <Cloud size={14} className={syncStatus === 'synced' ? 'text-emerald-400' : 'text-amber-400'} />
+        <span>{syncStatus === 'saving' ? 'Zapisywanie...' : 'Chmura aktywna'}</span>
       </div>
     </div>
   );
@@ -844,7 +1069,6 @@ export default function App() {
     const selectedDateObj = new Date(y, m - 1, d);
     const dayOfWeekStr = String(selectedDateObj.getDay());
 
-    // Filtruj zadania zaplanowane na wybrany dzień (wykonanie lub przypomnienie)
     const scheduledTasks = tasks
       .map(task => {
         const status = getTaskStatusForDate(task, selectedPlanDate);
@@ -852,7 +1076,6 @@ export default function App() {
       })
       .filter(item => item.isScheduled);
 
-    // Filtruj nawyki zaplanowane na wybrany dzień tygodnia
     const scheduledHabits = habits.filter(h => 
       (h.frequency || ['1','2','3','4','5','6','0']).includes(dayOfWeekStr)
     );
@@ -1139,11 +1362,9 @@ export default function App() {
     const [taskType, setTaskType] = useState('one-time');
     const [filterCategory, setFilterCategory] = useState('all');
     
-    // Pola dla zadań jednorazowych
     const [dueDate, setDueDate] = useState(today);
     const [reminderDate, setReminderDate] = useState('');
     
-    // Pola dla zadań stałych
     const [freqCount, setFreqCount] = useState(1);
     const [freqType, setFreqType] = useState('weekly');
     const [specDay, setSpecDay] = useState('');
@@ -1196,7 +1417,6 @@ export default function App() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h2 className="text-2xl font-semibold text-slate-800">Wszystkie Zadania</h2>
           
-          {/* Filtr kategorii */}
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setFilterCategory('all')}
@@ -1225,7 +1445,6 @@ export default function App() {
           </div>
         </div>
         
-        {/* Formularz dodawania nowego zadania */}
         <form onSubmit={handleAddTask} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-5">
           <div className="flex flex-col sm:flex-row gap-4">
             <input 
@@ -1269,7 +1488,6 @@ export default function App() {
             </label>
           </div>
 
-          {/* Pola dla zadania jednorazowego */}
           {taskType === 'one-time' && (
             <div className="flex flex-col sm:flex-row gap-4 bg-rose-50/30 p-4 rounded-xl border border-rose-100/80">
               <div className="flex-1">
@@ -1305,7 +1523,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Pola dla zadania stałego */}
           {taskType === 'recurring' && (
             <div className="space-y-4 bg-indigo-50/30 p-4 rounded-xl border border-indigo-100/80">
               <div className="flex flex-col sm:flex-row gap-4">
@@ -1407,7 +1624,6 @@ export default function App() {
           </button>
         </form>
 
-        {/* Lista zadań wg kategorii */}
         <div className="space-y-8">
           {visibleCategories.map(category => {
             const catTasks = tasks.filter(t => t.categoryId === category.id);
@@ -1612,19 +1828,16 @@ export default function App() {
     const completedTodayHabits = todayHabits.filter(h => h.completedDates.includes(today)).length;
     const habitsProgress = todayHabits.length === 0 ? 0 : Math.round((completedTodayHabits / todayHabits.length) * 100);
 
-    const circumference = 251.2; // 2 * PI * 40
+    const circumference = 251.2;
 
     return (
       <div className="space-y-6 fade-in">
         <h2 className="text-2xl font-semibold text-slate-800">Statystyki i Podsumowanie Dnia</h2>
         
         <div className="bg-white p-5 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
-          {/* Układ z dwoma wykresami obok siebie i kwadratami pod każdym z nich */}
           <div className="grid grid-cols-2 gap-4 sm:gap-8 max-w-2xl mx-auto">
             
-            {/* KOLUMNA LEWA: ZADANIA */}
             <div className="flex flex-col items-center">
-              {/* Wykres kołowy Zadań */}
               <div className="relative w-32 h-32 sm:w-44 sm:h-44 mb-4 flex items-center justify-center">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                   <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f1f5f9" strokeWidth="8" />
@@ -1651,7 +1864,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Kwadrat pod wykresem zadań */}
               <div className="w-full aspect-square max-w-[180px] bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center shadow-sm">
                 <p className="text-[11px] sm:text-xs uppercase tracking-wider text-slate-400 mb-2 font-semibold leading-snug">
                   Zadania na dziś
@@ -1662,9 +1874,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* KOLUMNA PRAWA: NAWYKI */}
             <div className="flex flex-col items-center">
-              {/* Wykres kołowy Nawyków */}
               <div className="relative w-32 h-32 sm:w-44 sm:h-44 mb-4 flex items-center justify-center">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                   <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f1f5f9" strokeWidth="8" />
@@ -1691,7 +1901,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Kwadrat pod wykresem nawyków */}
               <div className="w-full aspect-square max-w-[180px] bg-rose-50/40 p-4 rounded-2xl border border-rose-100/80 flex flex-col items-center justify-center text-center shadow-sm">
                 <p className="text-[11px] sm:text-xs uppercase tracking-wider text-rose-400 mb-2 font-semibold leading-snug">
                   Nawyki na dziś
@@ -1702,7 +1911,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* PROSTOKĄT POD SPODEM: WSZYSTKIE ZADANIA W BAZIE */}
             <div className="col-span-2 bg-slate-50 p-5 rounded-2xl border border-slate-100 text-center mt-2">
               <p className="text-xs uppercase tracking-wider text-slate-400 mb-1 font-semibold">
                 Wszystkie zadania w bazie
@@ -1713,7 +1921,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Statystyki wg kategorii */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
           <h3 className="font-semibold text-slate-700">Podział zadań według kategorii</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1751,9 +1958,36 @@ export default function App() {
       showNotification("Nowa kategoria została dodana!");
     };
 
+    const handleSignOut = async () => {
+      await supabase.auth.signOut();
+    };
+
     return (
       <div className="space-y-6 fade-in">
         <h2 className="text-2xl font-semibold text-slate-800">Ustawienia & Kategorie</h2>
+
+        {/* Karta Konta i Chmury */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0">
+              <Cloud size={22} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
+                {syncStatus === 'saving' ? 'Synchronizowanie zmian...' : 'Zsynchronizowano z chmurą'}
+              </p>
+              <p className="text-sm font-medium text-slate-700 mt-0.5 break-all">
+                {session.user.email}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="px-4 py-2.5 text-sm font-medium text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors flex items-center justify-center gap-2 shrink-0"
+          >
+            <LogOut size={16} /> Wyloguj się
+          </button>
+        </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
           <h3 className="text-lg font-medium text-slate-700 border-b border-slate-100 pb-4">Zarządzaj Kategoriami (Praca, Dom, Stowarzyszenie i inne)</h3>
