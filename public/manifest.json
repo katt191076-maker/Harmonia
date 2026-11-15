@@ -1,0 +1,8 @@
+{
+  "short_name": "Harmonia",
+  "name": "Harmonia - Planer Zadań i Nawyków",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#1e293b",
+  "background_color": "#f8fafc"
+}
